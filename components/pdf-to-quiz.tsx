@@ -23,6 +23,7 @@ export function PdfToQuiz() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion>({ question: '', answer: '' });
+  const [loading, setLoading] = useState(false);
 
 
   const handleFlip = () => {
@@ -117,8 +118,7 @@ export function PdfToQuiz() {
   const extractTextFromPDF = async (pdfFile: File) => {
     try {
       const text = await pdfToText(pdfFile);
-      summarizeText(text);
-      generateQuizQuestions(text);
+      return text;
     } catch (error) {
       console.error("Failed to extract text from pdf", error);
     }
@@ -141,10 +141,15 @@ export function PdfToQuiz() {
 
   const handleSummarize = async () => {
     if (file) {
-      await extractTextFromPDF(file);
-      if (summary) {
-        await generateQuizQuestions(summary);
+      setLoading(true);
+      const extractText = await extractTextFromPDF(file);
+      if (extractText) {
+        await summarizeText(extractText);
+        if (summary) {
+          await generateQuizQuestions(summary);
+        }
       }
+      setLoading(false);
     }
   };
 
@@ -198,7 +203,13 @@ export function PdfToQuiz() {
             )}
           </div>
 
-          {quizQuestions && quizQuestions.length === 0 && (
+          {loading && (
+            <div className="text-center">
+              <p>Loading...</p>
+            </div>
+          )}
+
+          {!loading && quizQuestions && quizQuestions.length === 0 && (
             <Button className='w-full' onClick={handleSummarize} disabled={!file}>
               {file ? 'Create a Quiz Cards' : 'Upload a PDF to start'}
             </Button>
@@ -209,17 +220,17 @@ export function PdfToQuiz() {
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{summary}</p>
             </div>
           )}
-          {quizQuestions && quizQuestions.length > 0 && (
+          {!loading && quizQuestions && quizQuestions.length > 0 && (
             <div className="mt-4 p-4 border rounded-lg bg-gray-50">
               <h3 className="text-lg font-semibold">Quiz Questions:</h3>
               <div className={styles.flipcontainer} onClick={handleFlip}>
                 <div className={`${styles.flipper} ${isFlipped ? styles.flipped : ''}`}>
                   {/* Front Side */}
-                  <div className={`${styles.front} bg-white border rounded-lg`}>
+                  <div className={`${styles.front} bg-white border rounded-lg text-center`}>
                     <strong>{currentQuestion.question}</strong>
                   </div>
                   {/* Back Side */}
-                  <div className={`${styles.back} bg-white border rounded-lg`}>
+                  <div className={`${styles.back} bg-white border rounded-lg text-center`}>
                     {currentQuestion.answer}
                   </div>
                 </div>
@@ -230,7 +241,6 @@ export function PdfToQuiz() {
               </div>
             </div>
           )}
-
         </CardContent>
       </Card>
     </div>
