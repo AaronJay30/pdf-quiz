@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import styles from './QuizCard.module.css'
 import { Upload, FileText } from 'lucide-react'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 import pdfToText from 'react-pdftotext'
 import axios from 'axios'
@@ -133,14 +135,14 @@ export function PdfToQuiz() {
   const handleSummarize = async () => {
     if (file) {
       setLoading(true); // Set loading to true when the function starts
-      setLoadingMessage("Generating summary..."); // Set loading message for summary generation
+      setLoadingMessage("Generating summary"); // Set loading message for summary generation
 
       const extractText = await extractTextFromPDF(file);
       if (extractText) {
         const summaryText = await summarizeText(extractText);
         if (summaryText) {
           setSummary(summaryText); // Set the summary state
-          setLoadingMessage("Generating questions..."); // Set loading message for question generation
+          setLoadingMessage("Generating questions"); // Set loading message for question generation
           
           const questions = await generateQuizQuestions(summaryText);
           if (questions && questions.questions.length > 0) {
@@ -228,7 +230,7 @@ export function PdfToQuiz() {
 
           {loading && (
             <div className="text-center">
-              <p>{loadingMessage}</p>
+              <p>{loadingMessage}<span className="dot">.</span><span className="dot">.</span><span className="dot">.</span></p>
             </div>
           )}
 
@@ -244,23 +246,36 @@ export function PdfToQuiz() {
             </div>
           )}
           {!loading && quizQuestions && quizQuestions.length > 0 && (
-            <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+            <div className="mt-4 p-4 border rounded-lg bg-gray-50 relative">
               <h3 className="text-lg font-semibold">Quiz Questions:</h3>
               <div className={styles.flipcontainer} onClick={handleFlip}>
                 <div className={`${styles.flipper} ${isFlipped ? styles.flipped : ''}`}>
                   {/* Front Side */}
-                  <div className={`${styles.front} bg-white border rounded-lg text-center`}>
+                  <div className={`${styles.front} bg-white border rounded-lg text-center px-16`}>
                     <strong>{currentQuestion.question}</strong>
                   </div>
                   {/* Back Side */}
-                  <div className={`${styles.back} bg-white border rounded-lg text-center`}>
+                  <div className={`${styles.back} bg-white border rounded-lg text-center px-16`}>
                     {currentQuestion.answer}
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex justify-between">
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={handleBack}>Back</button>
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={handleNext}>Next</button>
+              
+              {/* Page Indicator */}
+              <div className="text-center mt-2">
+                {quizQuestions.indexOf(currentQuestion) + 1}/{quizQuestions.length}
+              </div>
+          
+              {/* Arrow Icons */}
+              <div className="absolute top-1/2 transform -translate-y-1/2 left-4">
+                <button onClick={handleBack} className="flex items-center justify-center p-2 rounded-full text-black">
+                  <ArrowBackIcon className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="absolute top-1/2 transform -translate-y-1/2 right-4">
+                <button onClick={handleNext} className="flex items-center justify-center p-2 rounded-full text-black">
+                  <ArrowForwardIcon className="h-6 w-6" />
+                </button>
               </div>
             </div>
           )}
