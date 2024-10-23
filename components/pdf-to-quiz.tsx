@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import styles from './QuizCard.module.css'
 import { Upload, FileText } from 'lucide-react'
 
 import pdfToText from 'react-pdftotext'
@@ -208,24 +209,24 @@ export function PdfToQuiz() {
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{summary}</p>
             </div>
           )}
-            {quizQuestions && quizQuestions.length > 0 && (
+          {quizQuestions && quizQuestions.length > 0 && (
             <div className="mt-4 p-4 border rounded-lg bg-gray-50">
               <h3 className="text-lg font-semibold">Quiz Questions:</h3>
-              <div className="relative w-full h-48 flip-container" onClick={handleFlip}>
-                <div className={`flipper ${isFlipped ? 'flipped' : ''}`}>
+              <div className={styles.flipcontainer} onClick={handleFlip}>
+                <div className={`${styles.flipper} ${isFlipped ? styles.flipped : ''}`}>
                   {/* Front Side */}
-                  <div className="front flex items-center justify-center bg-white border rounded-lg">
+                  <div className={`${styles.front} bg-white border rounded-lg`}>
                     <strong>{currentQuestion.question}</strong>
                   </div>
                   {/* Back Side */}
-                  <div className="back flex items-center justify-center bg-white border rounded-lg">
+                  <div className={`${styles.back} bg-white border rounded-lg`}>
                     {currentQuestion.answer}
                   </div>
                 </div>
               </div>
               <div className="mt-4 flex justify-between">
-                <button onClick={handleBack} className="px-4 py-2 bg-blue-500 text-white rounded-lg">Back</button>
-                <button onClick={handleNext} className="px-4 py-2 bg-blue-500 text-white rounded-lg">Next</button>
+                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={handleBack}>Back</button>
+                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={handleNext}>Next</button>
               </div>
             </div>
           )}
