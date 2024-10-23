@@ -20,10 +20,10 @@ export function PdfToQuiz() {
   const [summary, setSummary] = useState<string | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion>({ question: '', answer: '' });
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null); // Add loading message state
 
 
   const handleFlip = () => {
@@ -32,19 +32,19 @@ export function PdfToQuiz() {
 
   const handleNext = () => {
     setIsFlipped(false);
-    setCurrentQuestionIndex((prevIndex) => {
-      const newIndex = (prevIndex + 1) % quizQuestions.length;
-      setCurrentQuestion(quizQuestions[newIndex]);  // Update current question
-      return newIndex;
+    setCurrentQuestion((prevQuestion) => {
+      const currentIndex = quizQuestions.indexOf(prevQuestion);
+      const newIndex = (currentIndex + 1) % quizQuestions.length;
+      return quizQuestions[newIndex];
     });
   };
   
   const handleBack = () => {
     setIsFlipped(false);
-    setCurrentQuestionIndex((prevIndex) => {
-      const newIndex = (prevIndex - 1 + quizQuestions.length) % quizQuestions.length;
-      setCurrentQuestion(quizQuestions[newIndex]);  // Update current question
-      return newIndex;
+    setCurrentQuestion((prevQuestion) => {
+      const currentIndex = quizQuestions.indexOf(prevQuestion);
+      const newIndex = (currentIndex - 1 + quizQuestions.length) % quizQuestions.length;
+      return quizQuestions[newIndex];
     });
   };
 
@@ -64,19 +64,21 @@ export function PdfToQuiz() {
           },
         }
       );
-      setSummary(response.data.summary);
+      return response.data.summary || null; // Return null if summary is not present
     } catch (error) {
       console.error("Error summarizing text", error);
+      return null; // Ensure it returns null on error
     }
   };
 
-   const generateQuizQuestions = async (summary: string) => {
+
+  const generateQuizQuestions = async (summary: string): Promise<{ questions: QuizQuestion[] }> => {
     try {
       const response = await axios.post(
         'https://api.cohere.com/v1/chat',
         {
           model: 'command-r-08-2024',
-          message: `Based on this summary \n\n${summary}. \n\n Generate 10 basic questions that can be found in the summary  for reviewer in JSON format. Each question should be paired with a corresponding answer and answer basically should be 1-2 words only.`,
+          message: `Based on this summary:\n\n${summary}\n\nPlease generate a JSON object with the following structure:\n{\n  "questions": [\n    {\n      "question": "What is the first question?",\n      "answer": "Answer to the first question"\n    },\n    {\n      "question": "What is the second question?",\n      "answer": "Answer to the second question"\n    }\n  ]\n}\n\nEach question should be basic and directly related to the summary, with answers being 1-2 words long. Generate a total of 10 questions and ensure the output follows this format.`,
           temperature: 0.3,
           stream: false,
           response_format: {
@@ -90,37 +92,72 @@ export function PdfToQuiz() {
           },
         }
       );
-  
-      const data = await response.data;
+
+      const data = response.data;
       let text = data.text;
-      
+
       if (text) {
-        // Remove the ```json and ``` from the string
-        text = text.replace(/```json\n|```/g, '');
-      
-        // Remove \r, \n, and \t characters
-        text = text.replace(/[\r\n\t]/g, '');
-      
+        // Clean the response text
+        text = text.replace(/```json\n|```/g, '').replace(/[\r\n\t]/g, '');
+
         // Parse the cleaned text
         const parsedText = JSON.parse(text);
-      
-        console.log(parsedText.questions);
-        setQuizQuestions(parsedText.questions);
-        setCurrentQuestion(parsedText.questions[0]);
+
+        // Check if questions exist
+        if (parsedText && Array.isArray(parsedText.questions)) {
+          return parsedText; // Return the parsed questions
+        } else {
+          console.error("Error: parsedText.questions is undefined or empty");
+          return { questions: [] }; // Return an empty array if questions not found
+        }
       } else {
         console.error("Error: data.text is undefined or empty");
+        return { questions: [] };
       }
     } catch (error) {
       console.error("Error generating quiz questions", error);
+      return { questions: [] }; // Return empty array on error
     }
   };
 
   const extractTextFromPDF = async (pdfFile: File) => {
     try {
       const text = await pdfToText(pdfFile);
-      return text;
+      return text || ''; // Ensure it returns an empty string if text is undefined
     } catch (error) {
       console.error("Failed to extract text from pdf", error);
+      return ''; // Return empty string on error
+    }
+  };
+
+  const handleSummarize = async () => {
+    if (file) {
+      setLoading(true); // Set loading to true when the function starts
+      setLoadingMessage("Generating summary..."); // Set loading message for summary generation
+
+      const extractText = await extractTextFromPDF(file);
+      if (extractText) {
+        const summaryText = await summarizeText(extractText);
+        if (summaryText) {
+          setSummary(summaryText); // Set the summary state
+          setLoadingMessage("Generating questions..."); // Set loading message for question generation
+          
+          const questions = await generateQuizQuestions(summaryText);
+          if (questions && questions.questions.length > 0) {
+            setQuizQuestions(questions.questions);
+            setCurrentQuestion(questions.questions[0]);
+          } else {
+            console.error("No questions generated.");
+          }
+        } else {
+          console.error("Summary generation failed.");
+        }
+      } else {
+        console.error("No text extracted from PDF.");
+      }
+      
+      setLoading(false); // Set loading to false when the function finishes
+      setLoadingMessage(null); // Clear loading message
     }
   };
 
@@ -138,20 +175,6 @@ export function PdfToQuiz() {
       setFile(files[0])
     }
   }
-
-  const handleSummarize = async () => {
-    if (file) {
-      setLoading(true);
-      const extractText = await extractTextFromPDF(file);
-      if (extractText) {
-        await summarizeText(extractText);
-        if (summary) {
-          await generateQuizQuestions(summary);
-        }
-      }
-      setLoading(false);
-    }
-  };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -205,7 +228,7 @@ export function PdfToQuiz() {
 
           {loading && (
             <div className="text-center">
-              <p>Loading...</p>
+              <p>{loadingMessage}</p>
             </div>
           )}
 
